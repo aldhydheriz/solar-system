@@ -3,7 +3,7 @@
 An interactive 3D solar system built with **Three.js**, **Vite**, and **TypeScript**.
 Click any planet — or any of its 11 moons — and the camera chases it down and follows it along its orbit.
 
-> Live demo: `https://<your-username>.github.io/<repo>/` (enable GitHub Pages, see below)
+> Live demo: https://aldhydheriz.github.io/solar-system/
 
 ## Features
 
