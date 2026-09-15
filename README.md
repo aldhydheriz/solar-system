@@ -47,10 +47,29 @@ src/
 
 ## Deploy to GitHub Pages
 
-1. Create an empty **public** repo on GitHub (no README).
-2. Push this project to it (`main` branch).
-3. In repo **Settings → Pages**, set **Source** to **GitHub Actions**.
-4. Push to `main` — the included workflow builds and publishes `dist/` automatically.
+No Actions needed — serve the prebuilt `dist/` folder straight from a branch
+(this also works when GitHub Actions is unavailable on your account):
+
+```bash
+npm run build
+git checkout --orphan gh-pages
+git rm -rf .
+cp dist/index.html .
+cp -r dist/assets .
+touch .nojekyll
+git add index.html assets .nojekyll
+git commit -m "Publish site"
+git push origin gh-pages
+git checkout main
+```
+
+Then in repo **Settings → Pages**, set **Source** to **Deploy from a branch**,
+branch `gh-pages`, folder `/ (root)`.
+
+Republish after changes by rebuilding and repeating the copy step on the
+`gh-pages` branch. (An Actions-based workflow is included as
+`.github/workflows/deploy.yml.disabled` — rename it to `deploy.yml` and switch
+Pages source to **GitHub Actions** once Actions works on your account.)
 
 ## Credits
 
