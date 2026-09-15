@@ -17,11 +17,18 @@
   <header id="top-bar">
     <h1>Solar System</h1>
     <div class="controls-row">
+      <button id="pause-btn" title="Pause / resume (Space)">Pause</button>
       <label for="speed-slider">Speed</label>
       <input type="range" id="speed-slider" min="0" max="200" value="50" />
       <span id="speed-label">1.0x</span>
+      <span id="sim-date" title="Simulated days passed">Day 0</span>
+      <button id="tour-btn" title="Auto tour all planets (T)">Tour</button>
       <button id="scale-toggle" title="Toggle real vs stylized scale">Stylized scale</button>
       <button id="labels-toggle" title="Toggle planet name labels">Labels on</button>
+      <button id="orbits-toggle" title="Toggle orbit lines">Orbits on</button>
+      <button id="belt-toggle" title="Toggle asteroid belt">Belt on</button>
+      <button id="quality-toggle" title="Toggle high / low graphics mode">High</button>
+      <button id="reset-btn" title="Reset view (R)">Reset</button>
     </div>
   </header>
 

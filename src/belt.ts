@@ -10,7 +10,9 @@ interface Asteroid {
 
 export interface Belt {
   group: THREE.Group;
+  visible: boolean;
   update(orbitTime: number): void;
+  setVisible(v: boolean): void;
 }
 
 /**
@@ -45,8 +47,16 @@ export function createBelt(scene: THREE.Scene, count = 2500): Belt {
   }
 
   const dummy = new THREE.Object3D();
+  let visible = true;
+
+  function setVisible(v: boolean): void {
+    visible = v;
+    belt.visible = v;
+    group.visible = v;
+  }
 
   function update(orbitTime: number): void {
+    if (!visible) return;
     for (let i = 0; i < count; i++) {
       const r = rocks[i];
       const m = r.angle + orbitTime * r.speed * 2;
@@ -61,5 +71,6 @@ export function createBelt(scene: THREE.Scene, count = 2500): Belt {
 
   update(0);
 
-  return { group, update };
+  const belt: Belt = { group, visible, update, setVisible };
+  return belt;
 }

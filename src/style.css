@@ -86,6 +86,9 @@ body {
   padding: 8px 16px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 72vw;
 }
 .controls-row label {
   font-size: 11px;
@@ -105,7 +108,13 @@ body {
   text-align: center;
 }
 #scale-toggle,
-#labels-toggle {
+#labels-toggle,
+#orbits-toggle,
+#belt-toggle,
+#quality-toggle,
+#reset-btn,
+#pause-btn,
+#tour-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #d1d5db;
@@ -121,15 +130,35 @@ body {
   white-space: nowrap;
 }
 #scale-toggle:hover,
-#labels-toggle:hover {
+#labels-toggle:hover,
+#orbits-toggle:hover,
+#belt-toggle:hover,
+#quality-toggle:hover,
+#reset-btn:hover,
+#pause-btn:hover,
+#tour-btn:hover {
   border-color: rgba(255, 255, 255, 0.4);
   color: #fff;
 }
 #scale-toggle.active,
-#labels-toggle.active {
+#labels-toggle.active,
+#orbits-toggle.active,
+#belt-toggle.active,
+#quality-toggle.active,
+#pause-btn.active,
+#tour-btn.active {
   background: rgba(245, 158, 11, 0.2);
   border-color: #f59e0b;
   color: #fbbf24;
+}
+#sim-date {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #9ca3af;
+  min-width: 64px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* ===== Follow Badge ===== */#follow-badge {
@@ -341,6 +370,9 @@ body {
   }
   .controls-row {
     padding: 6px 10px;
+    max-width: 62vw;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
   #speed-slider {
     width: 70px;

@@ -280,9 +280,11 @@ export interface SolarSystem {
   orbitLines: THREE.Line[];
   scaleMode: ScaleMode;
   labelsVisible: boolean;
+  orbitsVisible: boolean;
   update(orbitTime: number, timeScale: number, delta: number): void;
   setScaleMode(mode: ScaleMode): void;
   setLabelsVisible(v: boolean): void;
+  setOrbitsVisible(v: boolean): void;
 }
 
 export function currentRadius(d: PlanetData, mode: ScaleMode): number {
@@ -329,6 +331,7 @@ export function createSolarSystem(scene: THREE.Scene): SolarSystem {
 
   let scaleMode: ScaleMode = 'stylized';
   let labelsVisible = true;
+  let orbitsVisible = true;
 
   const loader = new THREE.TextureLoader();
 
@@ -425,12 +428,22 @@ export function createSolarSystem(scene: THREE.Scene): SolarSystem {
     planets.forEach((p) => { p.label.visible = v; });
   }
 
+  function setOrbitsVisible(v: boolean): void {
+    orbitsVisible = v;
+    solarSystem.orbitsVisible = v;
+    planets.forEach((p) => {
+      p.orbitLine.visible = v;
+      p.moonOrbits.forEach((line) => { line.visible = v; });
+    });
+  }
+
   const solarSystem: SolarSystem = {
     systemGroup,
     planets,
     orbitLines,
     scaleMode,
     labelsVisible,
+    orbitsVisible,
     update(orbitTime: number, timeScale: number, delta: number) {
       const frame = delta * 60;
       planets.forEach((p) => {
@@ -449,7 +462,8 @@ export function createSolarSystem(scene: THREE.Scene): SolarSystem {
       });
     },
     setScaleMode,
-    setLabelsVisible
+    setLabelsVisible,
+    setOrbitsVisible
   };
 
   return solarSystem;

@@ -1,13 +1,28 @@
 import { PLANETS, SUN_DATA } from './planets';
 import type { MoonPayload, PlanetData, ScaleMode, SelectPayload } from './planets';
 
+export type QualityMode = 'high' | 'low';
+
+export interface AppSettings {
+  speed: number;
+  scaleMode: ScaleMode;
+  labelsOn: boolean;
+  orbitsOn: boolean;
+  beltOn: boolean;
+  quality: QualityMode;
+}
+
 export interface ControlsRef {
   flyToPlanet?: (name: string) => void;
   focusSun?: () => void;
   stopFollowing?: () => void;
+  resetView?: () => void;
   onSpeedChange?: (scale: number) => void;
   onScaleChange?: (mode: ScaleMode) => void;
   onLabelsChange?: (visible: boolean) => void;
+  onOrbitsChange?: (visible: boolean) => void;
+  onBeltChange?: (visible: boolean) => void;
+  onQualityChange?: (mode: QualityMode) => void;
 }
 
 export interface UI {
@@ -15,6 +30,9 @@ export interface UI {
   hideLoading(): void;
   setActive(btn: HTMLButtonElement | null): void;
   setFollowing(name: string | null): void;
+  setDate(days: number): void;
+  getInitialState(): AppSettings;
+  getHashTarget(): string | null;
   buttonsMap: Record<string, HTMLButtonElement>;
   sunBtn: HTMLButtonElement;
 }
@@ -25,7 +43,67 @@ function getEl<T extends HTMLElement>(id: string): T {
   return el as T;
 }
 
+const STORE_KEY = 'solar-system-settings-v1';
+
+const DEFAULTS: AppSettings = {
+  speed: 1,
+  scaleMode: 'stylized',
+  labelsOn: true,
+  orbitsOn: true,
+  beltOn: true,
+  quality: 'high'
+};
+
+function loadStore(): AppSettings {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return { ...DEFAULTS };
+    const parsed = JSON.parse(raw) as Partial<AppSettings>;
+    return {
+      speed: typeof parsed.speed === 'number' ? Math.min(4, Math.max(0, parsed.speed)) : DEFAULTS.speed,
+      scaleMode: parsed.scaleMode === 'real' ? 'real' : 'stylized',
+      labelsOn: parsed.labelsOn !== false,
+      orbitsOn: parsed.orbitsOn !== false,
+      beltOn: parsed.beltOn !== false,
+      quality: parsed.quality === 'low' ? 'low' : 'high'
+    };
+  } catch {
+    return { ...DEFAULTS };
+  }
+}
+
+function saveStore(s: AppSettings): void {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(s));
+  } catch {
+    // private mode etc — settings just won't persist
+  }
+}
+
+/** Normalize location.hash to a planet name or 'sun', or null. */
+function parseHash(): string | null {
+  const h = window.location.hash.replace(/^#/, '').trim().toLowerCase();
+  if (!h) return null;
+  if (h === 'sun' || h === 'sol') return 'Sun';
+  const hit = PLANETS.find((p) => p.name.toLowerCase() === h);
+  return hit ? hit.name : null;
+}
+
+function updateHash(name: string | null): void {
+  try {
+    if (name) {
+      window.location.hash = name.toLowerCase();
+    } else if (window.location.hash) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  } catch {
+    // ignore (e.g. sandboxed iframe)
+  }
+}
+
 export function createUI(controlsRef: ControlsRef): UI {
+  const settings: AppSettings = loadStore();
+
   const nav = getEl<HTMLElement>('planet-nav');
   const infoPanel = getEl<HTMLElement>('info-panel');
   const closeBtn = getEl<HTMLButtonElement>('close-panel');
@@ -34,6 +112,13 @@ export function createUI(controlsRef: ControlsRef): UI {
   const loadingScreen = getEl<HTMLElement>('loading-screen');
   const scaleToggle = document.getElementById('scale-toggle') as HTMLButtonElement | null;
   const labelsToggle = document.getElementById('labels-toggle') as HTMLButtonElement | null;
+  const orbitsToggle = document.getElementById('orbits-toggle') as HTMLButtonElement | null;
+  const beltToggle = document.getElementById('belt-toggle') as HTMLButtonElement | null;
+  const qualityToggle = document.getElementById('quality-toggle') as HTMLButtonElement | null;
+  const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement | null;
+  const pauseBtn = document.getElementById('pause-btn') as HTMLButtonElement | null;
+  const tourBtn = document.getElementById('tour-btn') as HTMLButtonElement | null;
+  const simDate = document.getElementById('sim-date') as HTMLElement | null;
   const followBadge = document.getElementById('follow-badge') as HTMLButtonElement | null;
 
   followBadge?.addEventListener('click', () => {
@@ -61,6 +146,7 @@ export function createUI(controlsRef: ControlsRef): UI {
   sunBtn.innerHTML = '<span class="tooltip">Sun</span>';
   sunBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    stopTour();
     setActive(sunBtn);
     controlsRef.focusSun?.();
   });
@@ -75,6 +161,7 @@ export function createUI(controlsRef: ControlsRef): UI {
     btn.innerHTML = `<span class="tooltip">${p.name}</span>`;
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      stopTour();
       setActive(btn);
       controlsRef.flyToPlanet?.(p.name);
     });
@@ -87,27 +174,184 @@ export function createUI(controlsRef: ControlsRef): UI {
     infoPanel.classList.add('hidden');
   });
 
+  // ---- speed + pause ----
+  let lastSpeed = settings.speed > 0 ? settings.speed : 1;
+  speedSlider.value = String(settings.speed * 50);
+  speedLabel.textContent = settings.speed.toFixed(1) + 'x';
+
+  function refreshPauseBtn(): void {
+    if (!pauseBtn) return;
+    const paused = parseFloat(speedSlider.value) / 50 === 0;
+    pauseBtn.textContent = paused ? 'Play' : 'Pause';
+    pauseBtn.classList.toggle('active', paused);
+  }
+  refreshPauseBtn();
+
+  function applySpeed(scale: number): void {
+    settings.speed = scale;
+    if (scale > 0) lastSpeed = scale;
+    saveStore(settings);
+    speedSlider.value = String(scale * 50);
+    speedLabel.textContent = scale.toFixed(1) + 'x';
+    refreshPauseBtn();
+    controlsRef.onSpeedChange?.(scale);
+  }
+
   speedSlider.addEventListener('input', () => {
     const val = parseFloat(speedSlider.value);
-    const scale = val / 50;
-    speedLabel.textContent = scale.toFixed(1) + 'x';
-    controlsRef.onSpeedChange?.(scale);
+    applySpeed(val / 50);
   });
 
-  let scaleMode: ScaleMode = 'stylized';
-  scaleToggle?.addEventListener('click', () => {
-    scaleMode = scaleMode === 'stylized' ? 'real' : 'stylized';
+  pauseBtn?.addEventListener('click', () => {
+    const current = parseFloat(speedSlider.value) / 50;
+    applySpeed(current === 0 ? lastSpeed : 0);
+  });
+
+  // ---- scale / labels / orbits / belt / quality ----
+  let scaleMode: ScaleMode = settings.scaleMode;
+  function refreshScaleBtn(): void {
+    if (!scaleToggle) return;
     scaleToggle.textContent = scaleMode === 'stylized' ? 'Stylized scale' : 'Real scale';
     scaleToggle.classList.toggle('active', scaleMode === 'real');
+  }
+  refreshScaleBtn();
+  scaleToggle?.addEventListener('click', () => {
+    scaleMode = scaleMode === 'stylized' ? 'real' : 'stylized';
+    settings.scaleMode = scaleMode;
+    saveStore(settings);
+    refreshScaleBtn();
     controlsRef.onScaleChange?.(scaleMode);
   });
 
-  let labelsOn = true;
-  labelsToggle?.addEventListener('click', () => {
-    labelsOn = !labelsOn;
+  let labelsOn = settings.labelsOn;
+  function refreshLabelsBtn(): void {
+    if (!labelsToggle) return;
     labelsToggle.textContent = labelsOn ? 'Labels on' : 'Labels off';
     labelsToggle.classList.toggle('active', !labelsOn);
+  }
+  refreshLabelsBtn();
+  labelsToggle?.addEventListener('click', () => {
+    labelsOn = !labelsOn;
+    settings.labelsOn = labelsOn;
+    saveStore(settings);
+    refreshLabelsBtn();
     controlsRef.onLabelsChange?.(labelsOn);
+  });
+
+  let orbitsOn = settings.orbitsOn;
+  function refreshOrbitsBtn(): void {
+    if (!orbitsToggle) return;
+    orbitsToggle.textContent = orbitsOn ? 'Orbits on' : 'Orbits off';
+    orbitsToggle.classList.toggle('active', !orbitsOn);
+  }
+  refreshOrbitsBtn();
+  orbitsToggle?.addEventListener('click', () => {
+    orbitsOn = !orbitsOn;
+    settings.orbitsOn = orbitsOn;
+    saveStore(settings);
+    refreshOrbitsBtn();
+    controlsRef.onOrbitsChange?.(orbitsOn);
+  });
+
+  let beltOn = settings.beltOn;
+  function refreshBeltBtn(): void {
+    if (!beltToggle) return;
+    beltToggle.textContent = beltOn ? 'Belt on' : 'Belt off';
+    beltToggle.classList.toggle('active', !beltOn);
+  }
+  refreshBeltBtn();
+  beltToggle?.addEventListener('click', () => {
+    beltOn = !beltOn;
+    settings.beltOn = beltOn;
+    saveStore(settings);
+    refreshBeltBtn();
+    controlsRef.onBeltChange?.(beltOn);
+  });
+
+  let quality: QualityMode = settings.quality;
+  function refreshQualityBtn(): void {
+    if (!qualityToggle) return;
+    qualityToggle.textContent = quality === 'high' ? 'High' : 'Low';
+    qualityToggle.classList.toggle('active', quality === 'low');
+  }
+  refreshQualityBtn();
+  qualityToggle?.addEventListener('click', () => {
+    quality = quality === 'high' ? 'low' : 'high';
+    settings.quality = quality;
+    saveStore(settings);
+    refreshQualityBtn();
+    controlsRef.onQualityChange?.(quality);
+  });
+
+  // ---- reset + tour ----
+  resetBtn?.addEventListener('click', () => {
+    stopTour();
+    setActive(null);
+    controlsRef.resetView?.();
+  });
+
+  let tourActive = false;
+  let tourTimer: ReturnType<typeof setInterval> | null = null;
+  let tourIndex = 0;
+
+  function refreshTourBtn(): void {
+    if (!tourBtn) return;
+    tourBtn.textContent = tourActive ? 'Stop' : 'Tour';
+    tourBtn.classList.toggle('active', tourActive);
+  }
+
+  function stopTour(): void {
+    if (!tourActive) return;
+    tourActive = false;
+    if (tourTimer) {
+      clearInterval(tourTimer);
+      tourTimer = null;
+    }
+    refreshTourBtn();
+  }
+
+  function startTour(): void {
+    stopTour();
+    tourActive = true;
+    refreshTourBtn();
+    // start from the planet nearest to current selection, else Mercury
+    const activeName = buttonsMap && Object.keys(buttonsMap).find((n) => buttonsMap[n].classList.contains('active'));
+    tourIndex = activeName ? Math.max(0, PLANETS.findIndex((p) => p.name === activeName)) : 0;
+    const step = (): void => {
+      const p = PLANETS[tourIndex % PLANETS.length];
+      tourIndex++;
+      setActive(buttonsMap[p.name] ?? null);
+      controlsRef.flyToPlanet?.(p.name);
+    };
+    step();
+    tourTimer = setInterval(step, 5000);
+  }
+
+  tourBtn?.addEventListener('click', () => {
+    if (tourActive) stopTour();
+    else startTour();
+  });
+
+  // ---- keyboard shortcuts ----
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.repeat) return;
+    const key = e.key;
+    if (key === ' ' || e.code === 'Space') {
+      e.preventDefault();
+      pauseBtn?.click();
+    } else if (key >= '1' && key <= '8') {
+      const p = PLANETS[parseInt(key, 10) - 1];
+      if (p) (buttonsMap[p.name] ?? null)?.click();
+    } else if (key === '0') {
+      sunBtn.click();
+    } else if (key === 'r' || key === 'R') {
+      resetBtn?.click();
+    } else if (key === 't' || key === 'T') {
+      tourBtn?.click();
+    } else if (key === 'Escape') {
+      stopTour();
+    }
   });
 
   function setActive(btn: HTMLButtonElement | null): void {
@@ -115,9 +359,21 @@ export function createUI(controlsRef: ControlsRef): UI {
     if (btn) btn.classList.add('active');
   }
 
+  let lastDateText = '';
+  function setDate(days: number): void {
+    if (!simDate) return;
+    const text = days < 730 ? `Day ${Math.floor(days)}` : `${(days / 365.25).toFixed(1)} yrs`;
+    if (text !== lastDateText) {
+      lastDateText = text;
+      simDate.textContent = text;
+    }
+  }
+
   function showInfo(data: SelectPayload | null): void {
     if (!data) {
       infoPanel.classList.add('hidden');
+      stopTour();
+      updateHash(null);
       return;
     }
 
@@ -133,6 +389,7 @@ export function createUI(controlsRef: ControlsRef): UI {
       refs.desc.textContent = `${m.desc} Click the planet nav below to fly back out.`;
       refs.colorBar.style.background = `linear-gradient(90deg, ${color}, ${hexToRgba(shade(m.color), 1)})`;
       infoPanel.classList.remove('hidden');
+      updateHash(m.parentName);
       return;
     }
 
@@ -157,6 +414,7 @@ export function createUI(controlsRef: ControlsRef): UI {
     refs.colorBar.style.background = `linear-gradient(90deg, ${color}, ${hexToRgba(shade(isSun ? 0xff9d2f : (d.color ?? 0xffffff)), 1)})`;
 
     infoPanel.classList.remove('hidden');
+    updateHash(d.name);
   }
 
   function hideLoading(): void {
@@ -179,6 +437,9 @@ export function createUI(controlsRef: ControlsRef): UI {
     hideLoading,
     setActive,
     setFollowing,
+    setDate,
+    getInitialState: () => ({ ...settings }),
+    getHashTarget: () => parseHash(),
     buttonsMap,
     sunBtn
   };

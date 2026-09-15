@@ -10,7 +10,7 @@ import type { ScaleMode } from './planets';
 import { createBelt } from './belt';
 import { createControls } from './controls';
 import { createUI } from './ui';
-import type { ControlsRef } from './ui';
+import type { ControlsRef, QualityMode } from './ui';
 import './style.css';
 
 function init(): void {
@@ -59,7 +59,7 @@ function init(): void {
   labelRenderer.domElement.id = 'labels';
   document.body.appendChild(labelRenderer.domElement);
 
-  createLighting(scene);
+  const sunLight = createLighting(scene);
   createStarfield(scene);
 
   const sun = createSun(scene);
@@ -88,18 +88,59 @@ function init(): void {
 
   let simulationSpeed = 1;
 
+  function applyQuality(mode: QualityMode): void {
+    const low = mode === 'low';
+    bloom.enabled = !low;
+    renderer.shadowMap.enabled = !low;
+    sunLight.castShadow = !low;
+    renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio, 2));
+    composer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio, 2));
+    // recompile materials so shadow on/off actually takes effect
+    scene.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
+      if (Array.isArray(mat)) mat.forEach((m) => { m.needsUpdate = true; });
+      else if (mat) mat.needsUpdate = true;
+    });
+  }
+
   Object.assign(controlsRef, {
     flyToPlanet: (name: string) => controls.flyToPlanet(name),
     focusSun: () => controls.focusSun(),
     stopFollowing: () => controls.stopFollowing(true),
+    resetView: () => controls.resetView(),
     onSpeedChange: (scale: number) => { simulationSpeed = scale; },
     onScaleChange: (mode: ScaleMode) => { solarSystem.setScaleMode(mode); },
-    onLabelsChange: (visible: boolean) => { solarSystem.setLabelsVisible(visible); }
+    onLabelsChange: (visible: boolean) => { solarSystem.setLabelsVisible(visible); },
+    onOrbitsChange: (visible: boolean) => { solarSystem.setOrbitsVisible(visible); },
+    onBeltChange: (visible: boolean) => { belt.setVisible(visible); },
+    onQualityChange: (mode: QualityMode) => { applyQuality(mode); }
   });
+
+  // Apply persisted settings (ui already reflects them; push to the 3D scene)
+  const initial = ui.getInitialState();
+  simulationSpeed = initial.speed;
+  solarSystem.setScaleMode(initial.scaleMode);
+  solarSystem.setLabelsVisible(initial.labelsOn);
+  solarSystem.setOrbitsVisible(initial.orbitsOn);
+  belt.setVisible(initial.beltOn);
+  applyQuality(initial.quality);
+
+  // Deep link: #mars, #earth, #sun, ...
+  const hashTarget = ui.getHashTarget();
+  if (hashTarget === 'Sun') {
+    controls.focusSun();
+  } else if (hashTarget) {
+    controls.flyToPlanet(hashTarget);
+  }
 
   const clock = new THREE.Clock();
   let elapsed = 0;
   let orbitTime = 0;
+  let dateTimer = 0;
+  // Earth does a full orbit when orbitTime * speed * 2 = 2π with speed 0.25
+  // → orbitTime per year = π / 0.25 → ~29.07 days per orbitTime unit
+  const DAYS_PER_UNIT = 365.25 / (Math.PI / 0.25);
 
   function animate(): void {
     requestAnimationFrame(animate);
@@ -112,6 +153,12 @@ function init(): void {
     solarSystem.update(orbitTime, simulationSpeed, delta);
     belt.update(orbitTime);
     controls.update();
+
+    dateTimer += delta;
+    if (dateTimer > 0.25) {
+      dateTimer = 0;
+      ui.setDate(orbitTime * DAYS_PER_UNIT);
+    }
 
     composer.render();
     labelRenderer.render(scene, camera);
@@ -129,7 +176,7 @@ function init(): void {
   animate();
 }
 
-function createLighting(scene: THREE.Scene): void {
+function createLighting(scene: THREE.Scene): THREE.PointLight {
   const ambient = new THREE.AmbientLight(0x404055, 0.35);
   scene.add(ambient);
 
@@ -143,6 +190,8 @@ function createLighting(scene: THREE.Scene): void {
   const subtleFill = new THREE.DirectionalLight(0x4466cc, 0.15);
   subtleFill.position.set(-50, 80, -100);
   scene.add(subtleFill);
+
+  return sunLight;
 }
 
 function createStarfield(scene: THREE.Scene): THREE.Points {
