@@ -12,6 +12,8 @@ import { createComet } from './comet';
 import { createControls } from './controls';
 import { createUI } from './ui';
 import type { ControlsRef, QualityMode } from './ui';
+import { prefersReducedMotion, resolveInitialQuality } from './a11y';
+import { FpsMeter, PERF_BUDGET, shouldSuggestLowQuality } from './perf';
 import { registerSW } from 'virtual:pwa-register';
 import './style.css';
 
@@ -30,11 +32,16 @@ function init(): void {
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
+    // Fase 4.2: canvas MSAA is bypassed by EffectComposer (all frames go
+    // through RenderPass → bloom → OutputPass), so antialias only costs
+    // memory without improving the image. Off saves a full-res MSAA buffer.
+    antialias: false,
     alpha: false,
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // Fase 4.2: cap DPR at 1.5 — retina fill-rate + bloom cost drops ~44% vs 2x,
+  // 1080p (DPR 1) displays are unaffected.
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -42,7 +49,7 @@ function init(): void {
 
   // postprocessing: subtle bloom so the sun + highlights glow
   const composer = new EffectComposer(renderer);
-  composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  composer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
@@ -99,16 +106,54 @@ function init(): void {
   controls.setSceneRefs({ sun: sun.group });
 
   let simulationSpeed = 1;
+  let currentQuality: QualityMode = 'high';
+
+  // Fase 4.2: perf HUD (toggle with F) — rolling fps + draw stats so the
+  // 60fps High / 30fps Low budget is verifiable on any machine.
+  const fpsMeter = new FpsMeter();
+  const perfBadge = document.getElementById('perf-badge');
+  let perfVisible = false;
+  let perfTimer = 0;
+  let poorFpsSec = 0;
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
+    if ((e.key === 'f' || e.key === 'F') && perfBadge) {
+      perfVisible = !perfVisible;
+      perfBadge.classList.toggle('hidden', !perfVisible);
+    }
+  });
+
+  function updatePerfBadge(dt: number): void {
+    if (!perfBadge || !perfVisible) return;
+    perfTimer += dt;
+    if (perfTimer < 0.5) return;
+    perfTimer = 0;
+    const fps = fpsMeter.avgFps();
+    const floor = currentQuality === 'high' ? PERF_BUDGET.fpsHigh : PERF_BUDGET.fpsLow;
+    const ok = fpsMeter.samples >= 60 && fps >= floor;
+    if (currentQuality === 'high' && fpsMeter.samples >= 60 && fps < PERF_BUDGET.fpsLow) {
+      poorFpsSec += 0.5;
+    } else {
+      poorFpsSec = 0;
+    }
+    const info = renderer.info.render;
+    const hint = shouldSuggestLowQuality(fps, poorFpsSec) ? ' · try Low quality' : '';
+    perfBadge.textContent = `${Math.round(fps)} fps · ${info.calls} calls · ${(info.triangles / 1e6).toFixed(2)}M tris${hint}`;
+    perfBadge.classList.toggle('bad', !ok);
+  }
 
   function applyQuality(mode: QualityMode): void {
+    currentQuality = mode;
     const low = mode === 'low';
     bloom.enabled = !low;
     comet.setQuality(low);
     sun.setQuality(low);
     renderer.shadowMap.enabled = !low;
     sunLight.castShadow = !low;
-    renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio, 2));
-    composer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio, 1.5));
+    composer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio, 1.5));
     // recompile materials so shadow on/off actually takes effect
     scene.traverse((obj) => {
       const mesh = obj as THREE.Mesh;
@@ -166,7 +211,9 @@ function init(): void {
   });
 
   // Apply persisted settings (ui already reflects them; push to the 3D scene)
+  // Fase 4.1: prefers-reduced-motion forces low quality (no bloom) at startup.
   const initial = ui.getInitialState();
+  const effectiveQuality: QualityMode = resolveInitialQuality(initial.quality, prefersReducedMotion()) as QualityMode;
   simulationSpeed = initial.speed;
   solarSystem.setScaleMode(initial.scaleMode);
   solarSystem.setPositionMode(initial.positionsMode);
@@ -177,8 +224,17 @@ function init(): void {
   comet.setOrbitsVisible(initial.orbitsOn);
   belt.setVisible(initial.beltOn);
   kuiper.setVisible(initial.beltOn);
-  applyQuality(initial.quality);
+  applyQuality(effectiveQuality);
   applyDim(initial.dim);
+
+  // If the OS toggles reduced-motion mid-session, drop bloom immediately.
+  try {
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').addEventListener?.('change', (e) => {
+      if (e.matches) applyQuality('low');
+    });
+  } catch {
+    // older browsers without addEventListener on MediaQueryList — ignore
+  }
 
   // Deep link: #mars, #earth, #sun, ...
   const hashTarget = ui.getHashTarget();
@@ -210,6 +266,7 @@ function init(): void {
     const delta = Math.min(clock.getDelta(), 0.05);
     elapsed += delta;
     orbitTime += delta * simulationSpeed;
+    fpsMeter.push(delta);
 
     sun.update(elapsed, simulationSpeed, delta);
     solarSystem.update(orbitTime, simulationSpeed, delta, simDateMs());
@@ -227,6 +284,7 @@ function init(): void {
 
     composer.render();
     labelRenderer.render(scene, camera);
+    updatePerfBadge(delta);
   }
 
   window.addEventListener('resize', () => {
@@ -248,8 +306,10 @@ function createLighting(scene: THREE.Scene): THREE.PointLight {
   const sunLight = new THREE.PointLight(0xfff3e0, 2200, 0, 1.6);
   sunLight.position.set(0, 0, 0);
   sunLight.castShadow = true;
-  sunLight.shadow.mapSize.width = 2048;
-  sunLight.shadow.mapSize.height = 2048;
+  // Fase 4.2: 1024 cube = 24MiB vs 2048 = 96MiB. Biggest single GPU saving
+  // toward the <150MB budget; shadows get slightly softer, still crisp.
+  sunLight.shadow.mapSize.width = 1024;
+  sunLight.shadow.mapSize.height = 1024;
   scene.add(sunLight);
 
   const subtleFill = new THREE.DirectionalLight(0x4466cc, 0.15);
@@ -261,7 +321,8 @@ function createLighting(scene: THREE.Scene): THREE.PointLight {
 
 function createStarfield(scene: THREE.Scene): THREE.Points {
   const starsGeometry = new THREE.BufferGeometry();
-  const count = 12000;
+  // Fase 4.2: 9000 pts (was 12000) — still dense, 25% less vertex + fill cost.
+  const count = 9000;
   const positions = new Float32Array(count * 3);
   const sizes = new Float32Array(count);
   const colors = new Float32Array(count * 3);

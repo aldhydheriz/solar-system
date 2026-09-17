@@ -12,6 +12,7 @@ import {
 } from './quiz';
 import type { QuizState } from './quiz';
 import { TOUR_STEP_MS, tourStartIndex, tourStopAt } from './tour';
+import { navRovingIndex, prefersReducedMotion, shouldAutoAdvanceTour } from './a11y';
 
 export type QualityMode = 'high' | 'low';
 
@@ -194,8 +195,10 @@ export function createUI(controlsRef: ControlsRef): UI {
   const buttonsMap: Record<string, HTMLButtonElement> = {};
 
   const sunBtn = document.createElement('button');
+  sunBtn.type = 'button';
   sunBtn.className = 'nav-btn sun-btn';
   sunBtn.title = 'Sun';
+  sunBtn.setAttribute('aria-label', 'Fly to Sun');
   sunBtn.style.background = 'radial-gradient(circle at 35% 35%, #ffdf8a, #ff9d2f 60%, #e56300)';
   sunBtn.innerHTML = '<span class="tooltip">Sun</span>';
   sunBtn.addEventListener('click', (e) => {
@@ -209,8 +212,10 @@ export function createUI(controlsRef: ControlsRef): UI {
 
   PLANETS.forEach((p) => {
     const btn = document.createElement('button');
+    btn.type = 'button';
     btn.className = 'nav-btn';
     btn.title = p.name;
+    btn.setAttribute('aria-label', `Fly to ${p.name}`);
     btn.style.background = `radial-gradient(circle at 35% 35%, ${hexToRgba(p.color, 1)}, ${hexToRgba(shade(p.color), 1)})`;
     btn.innerHTML = `<span class="tooltip">${p.name}</span>`;
     btn.addEventListener('click', (e) => {
@@ -222,6 +227,19 @@ export function createUI(controlsRef: ControlsRef): UI {
     nav.appendChild(btn);
     buttons.push(btn);
     buttonsMap[p.name] = btn;
+  });
+
+  // ---- keyboard nav (Fase 4.1): arrows/Home/End move focus across Sun+planets ----
+  nav.setAttribute('aria-label', 'Planets');
+  nav.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+    const current = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    let next: number;
+    if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = buttons.length - 1;
+    else next = navRovingIndex(current < 0 ? 0 : current, e.key === 'ArrowRight' ? 1 : -1, buttons.length);
+    buttons[next]?.focus();
   });
 
   closeBtn.addEventListener('click', () => {
@@ -462,6 +480,9 @@ export function createUI(controlsRef: ControlsRef): UI {
 
   function restartTourTimer(): void {
     if (tourTimer) clearInterval(tourTimer);
+    tourTimer = null;
+    // Fase 4.1: reduced-motion kills auto-tour — stops stay manual (Prev/Next).
+    if (!shouldAutoAdvanceTour(prefersReducedMotion())) return;
     tourTimer = setInterval(() => {
       tourIndex++;
       renderTourStop();

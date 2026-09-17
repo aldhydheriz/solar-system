@@ -798,18 +798,72 @@ body {
   border-color: rgba(255, 255, 255, 0.4);
   color: #fff;
 }
-/* quiz answer flash on nav buttons */
+/* quiz answer flash on nav buttons — never color-only:
+   correct = solid green + ✓ badge, wrong = dashed red + ✕ badge */
 .nav-btn.correct {
   border-color: #34d399;
+  border-style: solid;
   box-shadow:
     0 0 0 3px rgba(52, 211, 153, 0.45),
     0 6px 20px rgba(0, 0, 0, 0.5);
 }
 .nav-btn.wrong {
   border-color: #f87171;
+  border-style: dashed;
   box-shadow:
     0 0 0 3px rgba(248, 113, 113, 0.45),
     0 6px 20px rgba(0, 0, 0, 0.5);
+}
+.nav-btn.correct::after,
+.nav-btn.wrong::after {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+  pointer-events: none;
+}
+.nav-btn.correct::after {
+  content: '✓';
+  background: #065f46;
+  color: #fff;
+  border: 1px solid #34d399;
+}
+.nav-btn.wrong::after {
+  content: '✕';
+  background: #7f1d1d;
+  color: #fff;
+  border: 1px solid #f87171;
+}
+
+/* ===== Perf Badge (Fase 4.2: FPS + draw stats, toggle with F) ===== */
+#perf-badge {
+  position: fixed;
+  bottom: 88px;
+  right: 24px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+  color: #34d399;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(52, 211, 153, 0.4);
+  border-radius: 8px;
+  padding: 6px 10px;
+  z-index: 15;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#perf-badge.bad {
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.5);
+}
+#perf-badge.hidden {
+  display: none;
 }
 
 /* ===== Planet Labels (CSS2D) ===== */
@@ -828,4 +882,59 @@ body {
   pointer-events: none;
   white-space: nowrap;
   user-select: none;
+}
+
+/* ===== Accessibility (Fase 4.1) ===== */
+#skip-link {
+  position: fixed;
+  top: -60px;
+  left: 16px;
+  z-index: 100;
+  background: #f59e0b;
+  color: #000;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 10px 16px;
+  border-radius: 0 0 10px 10px;
+  text-decoration: none;
+  transition: top 0.2s ease;
+}
+#skip-link:focus {
+  top: 0;
+}
+
+/* Visible keyboard focus everywhere — 2px amber outline, never outline:none alone */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 2px;
+}
+.nav-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+  border-color: #fbbf24;
+}
+
+/* Reduced motion: kill spin / fade / panel zoom so prefers-reduced-motion
+   users get instant, static UI. Bloom + tour auto-advance are disabled in JS. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  #hint {
+    animation: none;
+    opacity: 0.7;
+  }
+  .loader-ring {
+    animation: none;
+    border-top-color: rgba(255, 255, 255, 0.1);
+  }
 }

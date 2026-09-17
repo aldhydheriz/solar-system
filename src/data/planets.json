@@ -1,0 +1,377 @@
+{
+  "sun": {
+    "name": "Sun",
+    "radius": 20,
+    "color": "#ffcc33",
+    "rotationSpeed": 0.0015,
+    "stats": {
+      "diameter": "1,392,700 km",
+      "distance": "0 km",
+      "period": "—",
+      "day": "~27 days",
+      "moons": "8 planets + Pluto"
+    },
+    "desc": "The star at the center of our Solar System, containing 99.86% of the system's mass. Its core burns at 15 million °C, fusing hydrogen into helium."
+  },
+  "planets": [
+    {
+      "name": "Mercury",
+      "radius": 2,
+      "realRadius": 0.5,
+      "distance": 40,
+      "realDistance": 45,
+      "speed": 0.4,
+      "rotationSpeed": 0.004,
+      "color": "#9c8e85",
+      "texture": "mercurymap.jpg",
+      "inclination": 7.0,
+      "eccentricity": 0.205,
+      "axialTilt": 0.03,
+      "moons": [],
+      "stats": { "diameter": "4,879 km", "distance": "57.9M km", "period": "88 days", "day": "59 days", "moons": "0" },
+      "desc": "The smallest planet and closest to the Sun. A cratered world with extreme temperature swings."
+    },
+    {
+      "name": "Venus",
+      "radius": 3.5,
+      "realRadius": 1.0,
+      "distance": 60,
+      "realDistance": 65,
+      "speed": 0.3,
+      "rotationSpeed": 0.002,
+      "color": "#e8cda0",
+      "texture": "venusmap.jpg",
+      "inclination": 3.39,
+      "eccentricity": 0.007,
+      "axialTilt": 177.4,
+      "moons": [],
+      "stats": {
+        "diameter": "12,104 km",
+        "distance": "108.2M km",
+        "period": "225 days",
+        "day": "243 days",
+        "moons": "0"
+      },
+      "desc": "Hottest planet with a thick CO2 atmosphere and crushing pressure. Spins backwards."
+    },
+    {
+      "name": "Earth",
+      "radius": 3.8,
+      "realRadius": 1.1,
+      "distance": 85,
+      "realDistance": 90,
+      "speed": 0.25,
+      "rotationSpeed": 0.01,
+      "color": "#4d7dd1",
+      "texture": "earthmap1k.jpg",
+      "cloudsTexture": "earthcloudmaptrans.jpg",
+      "nightTexture": "earthlights1k.jpg",
+      "inclination": 0,
+      "eccentricity": 0.017,
+      "axialTilt": 23.4,
+      "moons": [
+        {
+          "name": "Moon",
+          "radius": 1.0,
+          "realRadius": 0.3,
+          "distance": 7.5,
+          "realDistance": 4.5,
+          "speed": 1.6,
+          "color": "#cccccc",
+          "texture": "moonmap1k.jpg",
+          "infoDiameter": "3,474 km",
+          "infoDistance": "384,400 km",
+          "blurb": "Stabilizes Earth's tilt and drives ocean tides."
+        }
+      ],
+      "stats": {
+        "diameter": "12,742 km",
+        "distance": "149.6M km",
+        "period": "365.25 days",
+        "day": "24 hours",
+        "moons": "1"
+      },
+      "desc": "Our home. The only known planet with life, liquid water oceans, and an oxygen atmosphere."
+    },
+    {
+      "name": "Mars",
+      "radius": 2.8,
+      "realRadius": 0.6,
+      "distance": 110,
+      "realDistance": 120,
+      "speed": 0.2,
+      "rotationSpeed": 0.009,
+      "color": "#c1442e",
+      "texture": "marsmap1k.jpg",
+      "inclination": 1.85,
+      "eccentricity": 0.093,
+      "axialTilt": 25.2,
+      "moons": [
+        {
+          "name": "Phobos",
+          "radius": 0.45,
+          "realRadius": 0.2,
+          "distance": 5.2,
+          "realDistance": 2.8,
+          "speed": 2.6,
+          "color": "#aa8a7a",
+          "infoDiameter": "22 km",
+          "infoDistance": "9,376 km",
+          "blurb": "A cratered captured asteroid, slowly spiraling toward Mars."
+        },
+        {
+          "name": "Deimos",
+          "radius": 0.35,
+          "realRadius": 0.15,
+          "distance": 6.8,
+          "realDistance": 3.8,
+          "speed": 1.9,
+          "color": "#99887d",
+          "infoDiameter": "12 km",
+          "infoDistance": "23,463 km",
+          "blurb": "Tiny outer moon of Mars, one of the smallest known moons."
+        }
+      ],
+      "stats": {
+        "diameter": "6,779 km",
+        "distance": "227.9M km",
+        "period": "687 days",
+        "day": "24.6 hours",
+        "moons": "2"
+      },
+      "desc": "The Red Planet. Home to Olympus Mons, the tallest volcano, and Valles Marineris canyon."
+    },
+    {
+      "name": "Jupiter",
+      "radius": 12,
+      "realRadius": 12.0,
+      "distance": 160,
+      "realDistance": 180,
+      "speed": 0.12,
+      "rotationSpeed": 0.02,
+      "color": "#d8a06a",
+      "texture": "jupitermap.jpg",
+      "rings": { "inner": 1.29, "outer": 1.8, "opacity": 0.18, "tiltXDeg": 90, "followTilt": false },
+      "inclination": 1.3,
+      "eccentricity": 0.049,
+      "axialTilt": 3.1,
+      "moons": [
+        {
+          "name": "Io",
+          "radius": 0.9,
+          "realRadius": 0.5,
+          "distance": 17,
+          "realDistance": 17,
+          "speed": 2.2,
+          "color": "#e8d44d",
+          "infoDiameter": "3,643 km",
+          "infoDistance": "421,700 km",
+          "blurb": "The most volcanically active world in the solar system."
+        },
+        {
+          "name": "Europa",
+          "radius": 0.8,
+          "realRadius": 0.45,
+          "distance": 20,
+          "realDistance": 20,
+          "speed": 1.7,
+          "color": "#dde4e6",
+          "infoDiameter": "3,122 km",
+          "infoDistance": "671,000 km",
+          "blurb": "Icy crust hiding a global salty ocean — a top bet for life."
+        },
+        {
+          "name": "Ganymede",
+          "radius": 1.3,
+          "realRadius": 0.7,
+          "distance": 24,
+          "realDistance": 24,
+          "speed": 1.3,
+          "color": "#a89880",
+          "infoDiameter": "5,268 km",
+          "infoDistance": "1,070,400 km",
+          "blurb": "Largest moon in the solar system, bigger than Mercury."
+        },
+        {
+          "name": "Callisto",
+          "radius": 1.2,
+          "realRadius": 0.65,
+          "distance": 28,
+          "realDistance": 28,
+          "speed": 1.0,
+          "color": "#7a756e",
+          "infoDiameter": "4,821 km",
+          "infoDistance": "1,882,700 km",
+          "blurb": "Ancient, heavily cratered ice world."
+        }
+      ],
+      "stats": {
+        "diameter": "139,820 km",
+        "distance": "778.5M km",
+        "period": "11.9 years",
+        "day": "9.9 hours",
+        "moons": "95"
+      },
+      "desc": "Largest planet. A gas giant with the Great Red Spot storm raging for centuries. Showing 4 Galilean moons."
+    },
+    {
+      "name": "Saturn",
+      "radius": 10,
+      "realRadius": 10.0,
+      "distance": 210,
+      "realDistance": 240,
+      "speed": 0.09,
+      "rotationSpeed": 0.018,
+      "color": "#e3cfa5",
+      "texture": "saturnmap.jpg",
+      "rings": { "inner": 1.3, "outer": 2.2, "opacity": 1, "tiltXDeg": 75, "followTilt": false },
+      "inclination": 2.49,
+      "eccentricity": 0.057,
+      "axialTilt": 26.7,
+      "moons": [
+        {
+          "name": "Titan",
+          "radius": 1.3,
+          "realRadius": 0.7,
+          "distance": 22,
+          "realDistance": 22,
+          "speed": 1.1,
+          "color": "#d8a848",
+          "infoDiameter": "5,150 km",
+          "infoDistance": "1,221,870 km",
+          "blurb": "Thick nitrogen atmosphere with lakes of liquid methane."
+        },
+        {
+          "name": "Rhea",
+          "radius": 0.7,
+          "realRadius": 0.4,
+          "distance": 26,
+          "realDistance": 26,
+          "speed": 0.8,
+          "color": "#b8b4ac",
+          "infoDiameter": "1,527 km",
+          "infoDistance": "527,000 km",
+          "blurb": "Icy moon with wispy bright streaks."
+        }
+      ],
+      "stats": {
+        "diameter": "116,460 km",
+        "distance": "1.43B km",
+        "period": "29.4 years",
+        "day": "10.7 hours",
+        "moons": "146"
+      },
+      "desc": "Famous for its spectacular ice rings. A gas giant less dense than water. Showing Titan and Rhea."
+    },
+    {
+      "name": "Uranus",
+      "radius": 7,
+      "realRadius": 4.4,
+      "distance": 260,
+      "realDistance": 290,
+      "speed": 0.06,
+      "rotationSpeed": 0.012,
+      "color": "#8fd1d4",
+      "texture": "uranusmap.jpg",
+      "rings": { "inner": 1.55, "outer": 2.0, "opacity": 0.3, "tiltXDeg": 90, "followTilt": true },
+      "inclination": 0.77,
+      "eccentricity": 0.046,
+      "axialTilt": 97.8,
+      "moons": [
+        {
+          "name": "Titania",
+          "radius": 0.8,
+          "realRadius": 0.45,
+          "distance": 12,
+          "realDistance": 9,
+          "speed": 1.0,
+          "color": "#a09a90",
+          "infoDiameter": "1,578 km",
+          "infoDistance": "435,910 km",
+          "blurb": "Largest moon of Uranus with huge canyon systems."
+        }
+      ],
+      "stats": {
+        "diameter": "50,724 km",
+        "distance": "2.87B km",
+        "period": "84 years",
+        "day": "17.2 hours",
+        "moons": "28"
+      },
+      "desc": "Ice giant tilted on its side, rolling around the Sun. Coldest atmosphere at -224°C."
+    },
+    {
+      "name": "Neptune",
+      "radius": 6.8,
+      "realRadius": 4.2,
+      "distance": 310,
+      "realDistance": 340,
+      "speed": 0.05,
+      "rotationSpeed": 0.011,
+      "color": "#4a6dd1",
+      "texture": "neptunemap.jpg",
+      "rings": { "inner": 1.9, "outer": 2.6, "opacity": 0.25, "tiltXDeg": 90, "followTilt": false },
+      "inclination": 1.77,
+      "eccentricity": 0.011,
+      "axialTilt": 28.3,
+      "moons": [
+        {
+          "name": "Triton",
+          "radius": 0.8,
+          "realRadius": 0.45,
+          "distance": 11.5,
+          "realDistance": 8.5,
+          "speed": -1.2,
+          "color": "#c4c9cc",
+          "infoDiameter": "2,707 km",
+          "infoDistance": "354,759 km",
+          "blurb": "Captured Kuiper object with nitrogen geysers; orbits backwards."
+        }
+      ],
+      "stats": {
+        "diameter": "49,244 km",
+        "distance": "4.50B km",
+        "period": "164.8 years",
+        "day": "16.1 hours",
+        "moons": "16"
+      },
+      "desc": "Farthest planet. Supersonic winds up to 2,100 km/h rage in its deep blue atmosphere."
+    },
+    {
+      "name": "Pluto",
+      "radius": 1.5,
+      "realRadius": 0.35,
+      "distance": 375,
+      "realDistance": 410,
+      "speed": 0.035,
+      "rotationSpeed": 0.006,
+      "color": "#c8b8a8",
+      "texture": "plutomap1k.jpg",
+      "inclination": 17.16,
+      "eccentricity": 0.244,
+      "axialTilt": 122.5,
+      "moons": [
+        {
+          "name": "Charon",
+          "radius": 0.75,
+          "realRadius": 0.2,
+          "distance": 4.2,
+          "realDistance": 2.6,
+          "speed": 1.4,
+          "color": "#9a958c",
+          "infoDiameter": "1,212 km",
+          "infoDistance": "19,591 km",
+          "blurb": "Half Pluto's size — the pair waltz around a shared barycenter."
+        }
+      ],
+      "stats": {
+        "diameter": "2,377 km",
+        "distance": "5.90B km",
+        "period": "248 years",
+        "day": "6.4 days",
+        "moons": "5"
+      },
+      "desc": "Dwarf planet in the Kuiper Belt. Heart-shaped Tombaugh Regio glacier of nitrogen ice. Showing Charon."
+    }
+  ]
+}

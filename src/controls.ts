@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import type { MoonData, MoonPayload, PlanetData, SelectPayload } from './planets';
+import type { MoonData, MoonPayload, PlanetData, ScaleMode, SelectPayload } from './planets';
 import type { SolarSystem } from './planets';
+import { currentRadius } from './planetData';
 
 export interface ControlsCallbacks {
   onSelect?: (data: SelectPayload | null) => void;
@@ -24,6 +25,7 @@ export interface PlanetControls {
   stopFollowing(deselect?: boolean): void;
   getFollowedName(): string | null;
   setSceneRefs(refs: SceneRefs): void;
+  setScaleMode(mode: ScaleMode): void;
   getSelected(): THREE.Object3D | null;
 }
 
@@ -36,6 +38,13 @@ interface FlyState {
   followTarget: THREE.Object3D | null;
   startTime: number;
   duration: number;
+}
+
+// Fase 4.3: sinyal deterministik buat E2E screenshot — `body[data-flight]`
+// = 'active' selama kamera terbang, 'idle' setelah mendarat. Absen = idle.
+// Guard typeof biar aman di luar DOM (unit test node).
+function setFlightFlag(state: 'active' | 'idle'): void {
+  if (typeof document !== 'undefined') document.body.dataset.flight = state;
 }
 
 export function createControls(
@@ -59,13 +68,25 @@ export function createControls(
   // planets + moons are all clickable / followable
   const meshes: THREE.Object3D[] = [
     ...planets.map((p) => p.mesh),
-    ...planets.flatMap((p) => p.moons.map((m) => m.mesh))
+    ...planets.flatMap((p) => p.moons.map((m) => m.mesh)),
   ];
   const hoverRings = planets.map((p) => createHoverRing(p.data));
   hoverRings.forEach((ring) => {
     ring.visible = false;
     systemGroup.add(ring);
   });
+
+  let scaleMode: ScaleMode = 'stylized';
+
+  /** Keep hover rings glued to the planet size in both scale modes. */
+  function setScaleMode(mode: ScaleMode): void {
+    scaleMode = mode;
+    hoverRings.forEach((ring) => {
+      const planet = planets.find((p) => p.data.name === (ring.userData.planetId as string));
+      if (!planet) return;
+      ring.scale.setScalar(currentRadius(planet.data, mode) / planet.data.radius);
+    });
+  }
 
   let hoveredPlanet: THREE.Mesh | null = null;
   let selectedPlanet: THREE.Object3D | null = null;
@@ -77,9 +98,13 @@ export function createControls(
   renderer.domElement.addEventListener('pointermove', onPointerMove);
   renderer.domElement.addEventListener('pointerleave', onPointerLeave);
   renderer.domElement.addEventListener('click', onPointerClick);
-  renderer.domElement.addEventListener('dblclick', () => resetView());
+  renderer.domElement.addEventListener('dblclick', onDoubleClick);
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') stopFollowing(true);
+    if (e.key === 'Escape') {
+      // Help modal takes priority (see ui.ts) — never unfollow while it's open.
+      if (!document.getElementById('help-modal')?.classList.contains('hidden')) return;
+      stopFollowing(true);
+    }
   });
 
   function onPointerMove(event: PointerEvent): void {
@@ -102,6 +127,16 @@ export function createControls(
       // click empty space: unfollow + deselect
       stopFollowing(true);
     }
+  }
+
+  function onDoubleClick(event: MouseEvent): void {
+    // Double-click a planet/moon already selects+follows via the two click
+    // events — resetting there would yank the camera away mid-chase.
+    // Only empty-space dblclick returns to the overview.
+    pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+    pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    if (raycast()) return;
+    resetView();
   }
 
   function raycast(): THREE.Mesh | null {
@@ -161,7 +196,9 @@ export function createControls(
       if (mat.emissive && base) {
         mat.emissive.copy(base);
       }
-      const ring = hoverRings.find((r) => r.userData.planetId === (hoveredPlanet!.userData.planetData as PlanetData).name);
+      const ring = hoverRings.find(
+        (r) => r.userData.planetId === (hoveredPlanet!.userData.planetData as PlanetData).name
+      );
       if (ring) ring.visible = false;
       hoveredPlanet = null;
       renderer.domElement.style.cursor = 'default';
@@ -183,7 +220,7 @@ export function createControls(
         parentName: parent.name,
         diameter: moonData.infoDiameter,
         distance: moonData.infoDistance,
-        desc: `${moonData.name} is a moon of ${parent.name}. ${moonData.blurb}`
+        desc: `${moonData.name} is a moon of ${parent.name}. ${moonData.blurb}`,
       };
       callbacks.onSelect?.(payload);
       callbacks.onFollow?.(moonData.name);
@@ -191,21 +228,27 @@ export function createControls(
       const worldPos = new THREE.Vector3();
       mesh.getWorldPosition(worldPos);
       const r = ((mesh as THREE.Mesh).geometry as THREE.SphereGeometry).parameters.radius;
-      const offset = new THREE.Vector3().copy(worldPos).normalize().multiplyScalar(Math.max(3, r * 8));
+      const offset = new THREE.Vector3()
+        .copy(worldPos)
+        .normalize()
+        .multiplyScalar(Math.max(3, r * 8));
       offset.y += Math.max(1.5, r * 3);
       startFly(worldPos.clone(), offset, mesh);
       return;
     }
 
-    const data = (mesh.userData.planetData as PlanetData);
+    const data = mesh.userData.planetData as PlanetData;
     callbacks.onSelect?.(data);
     callbacks.onFollow?.(data.name);
 
     const worldPos = new THREE.Vector3();
     mesh.getWorldPosition(worldPos);
 
-    const radius = data.radius;
-    const offset = new THREE.Vector3().copy(worldPos).normalize().multiplyScalar(radius * 6);
+    const radius = currentRadius(data, scaleMode);
+    const offset = new THREE.Vector3()
+      .copy(worldPos)
+      .normalize()
+      .multiplyScalar(radius * 6);
     offset.y += radius * 2.5;
 
     startFly(worldPos.clone(), offset, mesh);
@@ -218,6 +261,8 @@ export function createControls(
     const dist = startPos.distanceTo(targetPos);
     const duration = Math.max(0.6, Math.min(2.5, dist / 320));
 
+    setFlightFlag('active');
+
     flyState = {
       startPos,
       targetPos,
@@ -226,7 +271,7 @@ export function createControls(
       offset: offset.clone(),
       followTarget,
       startTime: performance.now(),
-      duration: duration * 1000
+      duration: duration * 1000,
     };
     controls.enabled = false;
   }
@@ -256,6 +301,7 @@ export function createControls(
       followed = flyState.followTarget;
       flyState = null;
       controls.enabled = true;
+      setFlightFlag('idle');
     }
   }
 
@@ -341,7 +387,10 @@ export function createControls(
     stopFollowing,
     getFollowedName,
     setSceneRefs,
-    getSelected() { return selectedPlanet; }
+    setScaleMode,
+    getSelected() {
+      return selectedPlanet;
+    },
   };
 }
 
@@ -353,7 +402,7 @@ function createHoverRing(data: PlanetData): THREE.Mesh {
     opacity: 0.9,
     side: THREE.DoubleSide,
     depthTest: false,
-    blending: THREE.AdditiveBlending
+    blending: THREE.AdditiveBlending,
   });
   const ring = new THREE.Mesh(geo, mat);
   ring.rotation.x = Math.PI / 2;
