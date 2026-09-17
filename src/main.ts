@@ -6,12 +6,17 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { createSun } from './sun';
 import { createSolarSystem } from './planets';
-import type { ScaleMode } from './planets';
-import { createBelt } from './belt';
+import type { PositionMode, ScaleMode } from './planets';
+import { createBelt, createKuiperBelt } from './belt';
+import { createComet } from './comet';
 import { createControls } from './controls';
 import { createUI } from './ui';
 import type { ControlsRef, QualityMode } from './ui';
+import { registerSW } from 'virtual:pwa-register';
 import './style.css';
+
+// Offline-first (Fase 1.4): precached app shell + textures via vite-plugin-pwa.
+registerSW({ immediate: true });
 
 function init(): void {
   const canvas = document.getElementById('solar-canvas') as HTMLCanvasElement | null;
@@ -20,18 +25,13 @@ function init(): void {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x000000, 0.00045);
 
-  const camera = new THREE.PerspectiveCamera(
-    55,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    3000
-  );
+  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 3000);
   camera.position.set(0, 140, 420);
 
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
-    alpha: false
+    alpha: false,
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -65,12 +65,24 @@ function init(): void {
   const sun = createSun(scene);
   const solarSystem = createSolarSystem(scene);
   const belt = createBelt(scene);
+  const kuiper = createKuiperBelt(scene);
+  const comet = createComet(scene);
 
   const controlsRef: ControlsRef = {};
   const ui = createUI(controlsRef);
 
   const controls = createControls(camera, renderer, solarSystem, {
     onSelect: (data) => {
+      // Quiz mode consumes planet picks as answers (canvas, nav, 1-9).
+      // Moons / Sun / deselect are ignored so the quiz keeps waiting.
+      const picked =
+        data &&
+        !(data as { _isMoon?: boolean })._isMoon &&
+        !(data as { _isSun?: boolean })._isSun &&
+        (data as { name?: string }).name
+          ? (data as { name: string }).name
+          : null;
+      if (picked) ui.handleQuizPick(picked);
       ui.showInfo(data);
       if (data && (data as { _isSun?: boolean })._isSun) {
         ui.setActive(ui.sunBtn);
@@ -82,7 +94,7 @@ function init(): void {
     },
     onFollow: (name) => {
       ui.setFollowing(name);
-    }
+    },
   });
   controls.setSceneRefs({ sun: sun.group });
 
@@ -91,6 +103,8 @@ function init(): void {
   function applyQuality(mode: QualityMode): void {
     const low = mode === 'low';
     bloom.enabled = !low;
+    comet.setQuality(low);
+    sun.setQuality(low);
     renderer.shadowMap.enabled = !low;
     sunLight.castShadow = !low;
     renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio, 2));
@@ -99,9 +113,20 @@ function init(): void {
     scene.traverse((obj) => {
       const mesh = obj as THREE.Mesh;
       const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
-      if (Array.isArray(mat)) mat.forEach((m) => { m.needsUpdate = true; });
+      if (Array.isArray(mat))
+        mat.forEach((m) => {
+          m.needsUpdate = true;
+        });
       else if (mat) mat.needsUpdate = true;
     });
+  }
+
+  // Dim mode (glare relief): tames bloom + exposure + sun glow + comet tail.
+  function applyDim(dim: boolean): void {
+    bloom.strength = dim ? 0.25 : 0.85;
+    renderer.toneMappingExposure = dim ? 0.8 : 1.1;
+    sun.setDim(dim);
+    comet.setDim(dim);
   }
 
   Object.assign(controlsRef, {
@@ -109,22 +134,51 @@ function init(): void {
     focusSun: () => controls.focusSun(),
     stopFollowing: () => controls.stopFollowing(true),
     resetView: () => controls.resetView(),
-    onSpeedChange: (scale: number) => { simulationSpeed = scale; },
-    onScaleChange: (mode: ScaleMode) => { solarSystem.setScaleMode(mode); },
-    onLabelsChange: (visible: boolean) => { solarSystem.setLabelsVisible(visible); },
-    onOrbitsChange: (visible: boolean) => { solarSystem.setOrbitsVisible(visible); },
-    onBeltChange: (visible: boolean) => { belt.setVisible(visible); },
-    onQualityChange: (mode: QualityMode) => { applyQuality(mode); }
+    onSpeedChange: (scale: number) => {
+      simulationSpeed = scale;
+    },
+    onScaleChange: (mode: ScaleMode) => {
+      solarSystem.setScaleMode(mode);
+      comet.setScaleMode(mode);
+      controls.setScaleMode(mode);
+    },
+    onPositionsChange: (mode: PositionMode) => {
+      solarSystem.setPositionMode(mode);
+    },
+    onLabelsChange: (visible: boolean) => {
+      solarSystem.setLabelsVisible(visible);
+      comet.setLabelsVisible(visible);
+    },
+    onOrbitsChange: (visible: boolean) => {
+      solarSystem.setOrbitsVisible(visible);
+      comet.setOrbitsVisible(visible);
+    },
+    onBeltChange: (visible: boolean) => {
+      belt.setVisible(visible);
+      kuiper.setVisible(visible);
+    },
+    onQualityChange: (mode: QualityMode) => {
+      applyQuality(mode);
+    },
+    onDimChange: (dim: boolean) => {
+      applyDim(dim);
+    },
   });
 
   // Apply persisted settings (ui already reflects them; push to the 3D scene)
   const initial = ui.getInitialState();
   simulationSpeed = initial.speed;
   solarSystem.setScaleMode(initial.scaleMode);
+  solarSystem.setPositionMode(initial.positionsMode);
+  controls.setScaleMode(initial.scaleMode);
   solarSystem.setLabelsVisible(initial.labelsOn);
   solarSystem.setOrbitsVisible(initial.orbitsOn);
+  comet.setLabelsVisible(initial.labelsOn);
+  comet.setOrbitsVisible(initial.orbitsOn);
   belt.setVisible(initial.beltOn);
+  kuiper.setVisible(initial.beltOn);
   applyQuality(initial.quality);
+  applyDim(initial.dim);
 
   // Deep link: #mars, #earth, #sun, ...
   const hashTarget = ui.getHashTarget();
@@ -141,6 +195,14 @@ function init(): void {
   // Earth does a full orbit when orbitTime * speed * 2 = 2π with speed 0.25
   // → orbitTime per year = π / 0.25 → ~29.07 days per orbitTime unit
   const DAYS_PER_UNIT = 365.25 / (Math.PI / 0.25);
+  const MS_PER_DAY = 86400e3;
+  // Fase 3.1: simulasi berjalan dari hari ini; mode real memetakan tanggal
+  // sim ke posisi JPL, mode artistic memakai penghitung hari lama.
+  const simEpochMs = Date.now();
+
+  function simDateMs(): number {
+    return simEpochMs + orbitTime * DAYS_PER_UNIT * MS_PER_DAY;
+  }
 
   function animate(): void {
     requestAnimationFrame(animate);
@@ -150,14 +212,17 @@ function init(): void {
     orbitTime += delta * simulationSpeed;
 
     sun.update(elapsed, simulationSpeed, delta);
-    solarSystem.update(orbitTime, simulationSpeed, delta);
+    solarSystem.update(orbitTime, simulationSpeed, delta, simDateMs());
+    comet.update(orbitTime);
     belt.update(orbitTime);
+    kuiper.update(orbitTime);
     controls.update();
 
     dateTimer += delta;
     if (dateTimer > 0.25) {
       dateTimer = 0;
-      ui.setDate(orbitTime * DAYS_PER_UNIT);
+      if (ui.getPositionsMode() === 'real') ui.setDateReal(simDateMs());
+      else ui.setDate(orbitTime * DAYS_PER_UNIT);
     }
 
     composer.render();
@@ -205,7 +270,7 @@ function createStarfield(scene: THREE.Scene): THREE.Points {
     new THREE.Color(0xffffff),
     new THREE.Color(0xffeedd),
     new THREE.Color(0xbbddff),
-    new THREE.Color(0xffd4b0)
+    new THREE.Color(0xffd4b0),
   ];
 
   for (let i = 0; i < count; i++) {
@@ -236,7 +301,7 @@ function createStarfield(scene: THREE.Scene): THREE.Points {
     opacity: 0.95,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
-    sizeAttenuation: true
+    sizeAttenuation: true,
   });
 
   const stars = new THREE.Points(starsGeometry, starsMaterial);

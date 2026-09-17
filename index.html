@@ -1,72 +1,176 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Solar System 3D</title>
-  <link rel="icon" href="data:," />
-</head>
-<body>
-  <canvas id="solar-canvas"></canvas>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Interactive 3D solar system — planets, moons, orbits." />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/svg+xml" href="./pwa-icon.svg" />
+    <link rel="apple-touch-icon" href="./pwa-icon.svg" />
+    <title>Solar System 3D</title>
+  </head>
+  <body>
+    <canvas id="solar-canvas"></canvas>
 
-  <div id="loading-screen">
-    <div class="loader-ring"></div>
-    <p>Loading Solar System...</p>
-  </div>
-
-  <header id="top-bar">
-    <h1>Solar System</h1>
-    <div class="controls-row">
-      <button id="pause-btn" title="Pause / resume (Space)">Pause</button>
-      <label for="speed-slider">Speed</label>
-      <input type="range" id="speed-slider" min="0" max="200" value="50" />
-      <span id="speed-label">1.0x</span>
-      <span id="sim-date" title="Simulated days passed">Day 0</span>
-      <button id="tour-btn" title="Auto tour all planets (T)">Tour</button>
-      <button id="scale-toggle" title="Toggle real vs stylized scale">Stylized scale</button>
-      <button id="labels-toggle" title="Toggle planet name labels">Labels on</button>
-      <button id="orbits-toggle" title="Toggle orbit lines">Orbits on</button>
-      <button id="belt-toggle" title="Toggle asteroid belt">Belt on</button>
-      <button id="quality-toggle" title="Toggle high / low graphics mode">High</button>
-      <button id="reset-btn" title="Reset view (R)">Reset</button>
+    <div id="loading-screen">
+      <div class="loader-ring"></div>
+      <p>Loading Solar System...</p>
     </div>
-  </header>
 
-  <nav id="planet-nav"></nav>
+    <header id="top-bar">
+      <h1>Solar System</h1>
+      <div class="controls-row">
+        <button id="pause-btn" class="pill-btn" title="Pause / resume (Space)">Pause</button>
+        <label for="speed-slider">Speed</label>
+        <input type="range" id="speed-slider" min="0" max="200" value="50" />
+        <span id="speed-label">1.0x</span>
+        <span id="sim-date" title="Simulated days passed">Day 0</span>
+        <button id="tour-btn" class="pill-btn" title="Auto tour all planets (T)">Tour</button>
+        <button id="compare-btn" class="pill-btn" title="Compare two bodies side by side (C)">Compare</button>
+        <button id="quiz-btn" class="pill-btn" title="Quiz mode: click the named planet (Q)">Quiz</button>
+        <div class="dropdown">
+          <button id="view-toggle" class="pill-btn" title="View options (V)" aria-haspopup="true" aria-expanded="false">
+            View ▾
+          </button>
+          <div id="view-menu" class="dropdown-menu hidden">
+            <button id="scale-toggle" class="menu-row" title="Toggle real vs stylized scale">
+              <span>Scale</span><span class="state">Stylized</span>
+            </button>
+            <button id="positions-toggle" class="menu-row" title="Toggle artistic vs real (JPL) planet positions (P)">
+              <span>Positions</span><span class="state">Artistic</span>
+            </button>
+            <button id="labels-toggle" class="menu-row" title="Toggle planet name labels">
+              <span>Labels</span><span class="state">On</span>
+            </button>
+            <button id="orbits-toggle" class="menu-row" title="Toggle orbit lines">
+              <span>Orbits</span><span class="state">On</span>
+            </button>
+            <button id="belt-toggle" class="menu-row" title="Toggle asteroid + Kuiper belts">
+              <span>Belts</span><span class="state">On</span>
+            </button>
+            <button id="quality-toggle" class="menu-row" title="Toggle high / low graphics mode">
+              <span>Quality</span><span class="state">High</span>
+            </button>
+            <button id="dim-toggle" class="menu-row" title="Dim glare: bloom, sun glow, comet tail (D)">
+              <span>Dim glare</span><span class="state">Off</span>
+            </button>
+          </div>
+        </div>
+        <button id="reset-btn" class="pill-btn" title="Reset view (R)">Reset</button>
+        <button id="help-btn" class="pill-btn" title="Keyboard shortcuts (?)">?</button>
+      </div>
+    </header>
 
-  <aside id="info-panel" class="hidden">
-    <button id="close-panel" aria-label="Close">&times;</button>
-    <div id="planet-color-bar"></div>
-    <h2 id="panel-name"></h2>
-    <div class="panel-stats">
-      <div class="stat">
-        <span class="stat-label">Diameter</span>
-        <span id="panel-diameter" class="stat-value"></span>
+    <nav id="planet-nav"></nav>
+
+    <aside id="info-panel" class="hidden">
+      <button id="close-panel" aria-label="Close">&times;</button>
+      <div id="planet-color-bar"></div>
+      <h2 id="panel-name"></h2>
+      <div class="panel-stats">
+        <div class="stat">
+          <span class="stat-label">Diameter</span>
+          <span id="panel-diameter" class="stat-value"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Distance from Sun</span>
+          <span id="panel-distance" class="stat-value"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Orbital Period</span>
+          <span id="panel-period" class="stat-value"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Day Length</span>
+          <span id="panel-day" class="stat-value"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Moons</span>
+          <span id="panel-moons" class="stat-value"></span>
+        </div>
       </div>
-      <div class="stat">
-        <span class="stat-label">Distance from Sun</span>
-        <span id="panel-distance" class="stat-value"></span>
-      </div>
-      <div class="stat">
-        <span class="stat-label">Orbital Period</span>
-        <span id="panel-period" class="stat-value"></span>
-      </div>
-      <div class="stat">
-        <span class="stat-label">Day Length</span>
-        <span id="panel-day" class="stat-value"></span>
-      </div>
-      <div class="stat">
-        <span class="stat-label">Moons</span>
-        <span id="panel-moons" class="stat-value"></span>
+      <p id="panel-desc"></p>
+    </aside>
+
+    <div id="hint">
+      Click a planet or moon to follow it &bull; Scroll to zoom &bull; Drag to rotate &bull; Esc to stop
+    </div>
+
+    <button id="follow-badge" class="hidden" title="Stop following"></button>
+
+    <div id="tour-caption" class="hidden" role="status" aria-live="polite">
+      <span id="tour-progress">1 / 9</span>
+      <p id="tour-text"></p>
+      <div class="tour-actions">
+        <button id="tour-prev" class="pill-btn" title="Previous stop">‹ Prev</button>
+        <button id="tour-speech" class="pill-btn" title="Toggle narration voice">🔊 Off</button>
+        <button id="tour-next" class="pill-btn" title="Next stop">Next ›</button>
+        <button id="tour-stop" class="pill-btn" title="Stop tour">Stop</button>
       </div>
     </div>
-    <p id="panel-desc"></p>
-  </aside>
 
-  <div id="hint">Click a planet or moon to follow it &bull; Scroll to zoom &bull; Drag to rotate &bull; Esc to stop</div>
+    <div id="quiz-panel" class="hidden" role="status" aria-live="polite">
+      <span id="quiz-progress">1 / 5</span>
+      <p id="quiz-prompt">Click Mars!</p>
+      <p id="quiz-score">Score: 0 · Best: 0</p>
+      <p id="quiz-feedback"></p>
+      <div class="quiz-actions">
+        <button id="quiz-stop" class="pill-btn" title="Stop quiz">Stop</button>
+      </div>
+    </div>
 
-  <button id="follow-badge" class="hidden" title="Stop following"></button>
+    <div id="help-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <div class="help-card">
+        <button id="help-close" aria-label="Close help">&times;</button>
+        <h2 id="help-title">Keyboard shortcuts</h2>
+        <ul class="help-list">
+          <li><kbd>1</kbd>–<kbd>9</kbd><span>Fly to Mercury … Pluto</span></li>
+          <li><kbd>0</kbd><span>Fly to Sun</span></li>
+          <li><kbd>R</kbd><span>Reset view</span></li>
+          <li><kbd>T</kbd><span>Start / stop tour</span></li>
+          <li><kbd>C</kbd><span>Compare two bodies</span></li>
+          <li><kbd>Q</kbd><span>Quiz mode (click the planet)</span></li>
+          <li><kbd>V</kbd><span>View options menu</span></li>
+          <li><kbd>P</kbd><span>Artistic / real planet positions</span></li>
+          <li><kbd>D</kbd><span>Dim glare on / off</span></li>
+          <li><kbd>Space</kbd><span>Pause / resume</span></li>
+          <li><kbd>?</kbd><span>Open / close this help</span></li>
+          <li><kbd>Esc</kbd><span>Close help, else stop following</span></li>
+          <li><kbd>Dbl-click</kbd><span>Empty space = reset view</span></li>
+        </ul>
+      </div>
+    </div>
 
-  <script type="module" src="/src/main.ts"></script>
-</body>
+    <div id="compare-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="compare-title">
+      <div class="compare-card">
+        <button id="compare-close" aria-label="Close compare">&times;</button>
+        <h2 id="compare-title">Compare bodies</h2>
+        <div class="compare-selects">
+          <label
+            >A
+            <select id="compare-a"></select
+          ></label>
+          <label
+            >B
+            <select id="compare-b"></select
+          ></label>
+          <button id="compare-swap" class="pill-btn" title="Swap A and B">⇄</button>
+        </div>
+        <div class="compare-stage">
+          <div class="compare-col">
+            <div id="compare-circle-a" class="compare-circle"></div>
+            <div id="compare-label-a" class="compare-label"></div>
+          </div>
+          <div class="compare-col">
+            <div id="compare-circle-b" class="compare-circle"></div>
+            <div id="compare-label-b" class="compare-label"></div>
+          </div>
+        </div>
+        <p id="compare-ratio" class="compare-ratio"></p>
+        <p id="compare-scale-note" class="compare-note"></p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>
