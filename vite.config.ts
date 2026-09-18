@@ -6,6 +6,11 @@ export default defineConfig({
   server: {
     port: 8000,
   },
+  preview: {
+    port: 4173,
+    strictPort: true,
+    host: '127.0.0.1',
+  },
   test: {
     exclude: ['node_modules', 'dist', 'e2e/**'],
   },
